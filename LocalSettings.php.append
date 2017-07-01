@@ -7,8 +7,15 @@ $wgGroupPermissions['*']['autocreateaccount'] = true;
 $wgGroupPermissions['*']['edit'] = false;
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['createtalk'] = false;
-$wgGroupPermissions['user']['edit'] = true;
-$wgGroupPermissions['user']['createpage'] = true;
+$wgGroupPermissions['*']['writeapi'] = false;
+$wgGroupPermissions['user']['edit'] = false;
+$wgGroupPermissions['user']['createpage'] = false;
+$wgGroupPermissions['user']['createtalk'] = false;
+$wgGroupPermissions['user']['writeapi'] = false;
+$wgGroupPermissions['user']['upload'] = false;
+$wgGroupPermissions['sysop']['edit'] = true;
+$wgGroupPermissions['sysop']['createpage'] = true;
+$wgGroupPermissions['sysop']['upload'] = true;
 
 # Mobile view
 wfLoadExtension('MobileFrontend');
@@ -21,6 +28,9 @@ $wgAuthRemoteuserUserName = function() {
     $user = SSO::getUser();
 	return $user ? $user['username'] : '';
 };
+$wgAuthRemoteuserUserUrls = [
+    'logout' => '/sso/?action=logout&redirect_uri=' . base64_encode($_SERVER['REQUEST_URI'])
+];
 
 # VisualEditor
 wfLoadExtension('VisualEditor');
