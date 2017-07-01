@@ -1,0 +1,45 @@
+$wgSessionsInObjectCache = true;
+$wgSessionCacheType = CACHE_MEMCACHED;
+
+# Permissions
+$wgGroupPermissions['*']['createaccount'] = false;
+$wgGroupPermissions['*']['autocreateaccount'] = true;
+$wgGroupPermissions['*']['edit'] = false;
+$wgGroupPermissions['*']['createpage'] = false;
+$wgGroupPermissions['*']['createtalk'] = false;
+$wgGroupPermissions['user']['edit'] = true;
+$wgGroupPermissions['user']['createpage'] = true;
+
+# Mobile view
+wfLoadExtension('MobileFrontend');
+$wgMFAutodetectMobileView = true;
+
+# SSO settings
+require_once 'libsso/libsso.class.php';
+wfLoadExtension('Auth_remoteuser');
+$wgAuthRemoteuserUserName = function() {
+    $user = SSO::getUser();
+	return $user ? $user['username'] : '';
+};
+
+# VisualEditor
+wfLoadExtension('VisualEditor');
+$wgDefaultUserOptions['visualeditor-enable'] = 1;
+$wgDefaultUserOptions['visualeditor-editor'] = 'visualeditor';
+$wgHiddenPrefs[] = 'visualeditor-enable';
+$wgDefaultUserOptions['visualeditor-enable-experimental'] = 1;
+$wgVirtualRestConfig['modules']['parsoid'] = [
+	'url' => 'http://127.0.0.1:8000'
+];
+$wgVisualEditor['EnableTocWidget'] = true;
+
+# Other settings
+$wgUseInstantCommons = false;
+$wgPingback = false;
+$wgShowExceptionDetails = false;
+$wgDisableCounters = true;
+$wgWellFormedXml = false;
+$wgShowIPinHeader = false;
+$wgUseGzip = true;
+
+error_reporting(E_ERROR);
