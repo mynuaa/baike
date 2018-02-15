@@ -683,7 +683,7 @@ class SkinTemplate extends Skin {
 
 			$login_url = [
 				'text' => $this->msg( $loginlink )->text(),
-				'href' => self::makeSpecialUrl( 'Userlogin', $returnto ),
+				'href' => 'http://' . $_SERVER['HTTP_HOST'] . '/sso/?page=login&redirect_uri=' . base64_encode($_SERVER['REQUEST_URI']),
 				'active' => $title->isSpecial( 'Userlogin' )
 					|| $title->isSpecial( 'CreateAccount' ) && $useCombinedLoginLink,
 			];

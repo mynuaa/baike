@@ -1,21 +1,40 @@
+<?
 $wgSessionsInObjectCache = true;
 $wgSessionCacheType = CACHE_MEMCACHED;
 
 # Permissions
+$wgGroupPermissions['*']['read'] = false;
+$wgGroupPermissions['*']['edit'] = false;
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgGroupPermissions['*']['autocreateaccount'] = true;
-$wgGroupPermissions['*']['edit'] = false;
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['createtalk'] = false;
 $wgGroupPermissions['*']['writeapi'] = false;
-$wgGroupPermissions['user']['edit'] = false;
-$wgGroupPermissions['user']['createpage'] = false;
-$wgGroupPermissions['user']['createtalk'] = false;
+
+$wgGroupPermissions['user']['read'] = false;
+$wgGroupPermissions['user']['edit'] = true;
+$wgGroupPermissions['user']['createpage'] = true;
+$wgGroupPermissions['user']['createtalk'] = true;
 $wgGroupPermissions['user']['writeapi'] = false;
 $wgGroupPermissions['user']['upload'] = false;
-$wgGroupPermissions['sysop']['edit'] = true;
-$wgGroupPermissions['sysop']['createpage'] = true;
+
+$wgGroupPermissions['sysop']['read'] = true;
 $wgGroupPermissions['sysop']['upload'] = true;
+$wgGroupPermissions['sysop']['review'] = true;
+$wgGroupPermissions['sysop']['validate'] = true;
+$wgGroupPermissions['sysop']['autoreview'] = true;
+$wgGroupPermissions['sysop']['autoreviewrestore'] = true;
+$wgGroupPermissions['sysop']['unreviewedpages'] = true;
+$wgGroupPermissions['sysop']['stablesettings'] = true;
+$wgGroupPermissions['sysop']['movestable'] = true;
+
+$wgGroupPermissions['reviewer']['read'] = true;
+$wgGroupPermissions['reviewer']['upload'] = true;
+$wgGroupPermissions['reviewer']['review'] = true;
+$wgGroupPermissions['reviewer']['validate'] = true;
+$wgGroupPermissions['reviewer']['unreviewedpages'] = true;
+$wgGroupPermissions['reviewer']['stablesettings'] = true;
+$wgGroupPermissions['reviewer']['movestable'] = true;
 
 # Mobile view
 wfLoadExtension('MobileFrontend');
@@ -42,6 +61,57 @@ $wgVirtualRestConfig['modules']['parsoid'] = [
 	'url' => 'http://127.0.0.1:8000'
 ];
 $wgVisualEditor['EnableTocWidget'] = true;
+
+#Configure FlaggedRevs to performs as CMS
+
+require_once("$IP/extensions/FlaggedRevs/FlaggedRevs.php");
+
+$wgDefaultUserOptions['flaggedrevsstable'] = FR_SHOW_STABLE_ALWAYS;
+$wgFlaggedRevsStatsAge = false;
+$wgFlaggedRevsOverride = true;
+$wgFlaggedRevsNamespaces = array(0);
+$wgWhitelistRead =  array ( "Main_Page", "Special:Userlogin", "Help:Contents","MediaWiki:Common.css", "MediaWiki:Common.js");
+$wgFlaggedRevsVisible = array( "sysop" );
+$wgHooks['TitleReadWhitelist'][] = 'efFlaggedRevsHooks_userCanView';
+
+function efFlaggedRevsHooks_userCanView( Title $title, $user, &$result ) {
+    global $wgFlaggedRevsVisible, $wgTitle;
+    if ( empty( $wgFlaggedRevsVisible ) ) {
+        return true;
+    }
+
+    # Admin may set this to false, rather than array()...
+    $groups = $user->getGroups();
+    $groups[] = '*';
+    $uid = $user->getId();
+    if ( !array_intersect( $groups, $wgFlaggedRevsVisible ) && $uid === 0) {
+        return true;
+    }
+    global $wgFlaggedRevsNamespaces;
+    # Whitelist page if not in a reviewed namespace
+    if ( !in_array( $wgTitle->getNamespace(),
+        $wgFlaggedRevsNamespaces ) ) {
+        $result = true;
+        return true;
+    }
+    # See if there is a stable version. Also, see if, given the page
+    # config and URL params, the page can be overriden. The later
+    # only applies on page views of $title.
+    if ( !empty( $wgTitle ) && $wgTitle->equals( $title ) ) {
+        $view = FlaggablePageView::singleton();
+        // Cache stable version while we are at it.
+        if ( $view->showingStable()) {
+            $result = true;
+        }
+    } else {
+        // Search and such need to know that the reader can view this page
+        if ( FlaggedRevision::newFromStable( $title ) ) {
+            $result = true;
+        }
+    }
+    // $result = true;
+    return true;
+}
 
 # Other settings
 $wgUseInstantCommons = false;

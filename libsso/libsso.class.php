@@ -1,6 +1,6 @@
 <?php
 
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 class SSO {
     protected static $ssodb = null;
@@ -11,7 +11,8 @@ class SSO {
     protected static $uid = -1;
     protected static function ssoInit($args) {
         self::$ssodb = new mysqli($args['host'], $args['user'], $args['pass'], $args['dbnm'], $args['port']);
-        self::$cert = $args['cert'];
+        self::$ssodb->set_charset('utf8mb4');
+        self::$cert = __DIR__ . '/' . $args['cert'];
         self::$pbkey = openssl_pkey_get_public(file_get_contents(self::$cert . "/public_key.pem"));
         self::$prkey = openssl_pkey_get_private(file_get_contents(self::$cert . "/private_key.pem"));
         if (isset($_COOKIE['myauth_uid'])) {
@@ -25,6 +26,7 @@ class SSO {
     }
     protected static function ucInit($args) {
         self::$ucdb = new mysqli($args['host'], $args['user'], $args['pass'], $args['dbnm'], $args['port']);
+        self::$ucdb->set_charset('utf8mb4');
     }
     public static function init() {
         self::ssoInit($GLOBALS['__CONFIG']['sso']);
@@ -42,38 +44,76 @@ class SSO {
     public static function getPubkeyForJs() {
         return trim(file_get_contents(self::$cert . "/js_public_key.dat"));
     }
-    public static function generateLoginUrl($uri = '') {
-        if ($uri == '') {
-            $uri = base64_encode($_SERVER['REQUEST_URI']);
-        }
+    public static function generateLoginUrl() {
         if (self::$uid != -1) {
             return "http://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
         }
+        $uri = base64_encode($_SERVER['REQUEST_URI']);
         return "http://{$_SERVER['HTTP_HOST']}/sso/?page=login&redirect_uri={$uri}";
     }
     public static function gotoLogin() {
         if (self::$uid != -1) {
             return;
         }
-        header('Location: http://' . $_SERVER['HTTP_HOST'] . '/sso/?page=login&redirect_uri=' . base64_encode($_SERVER['REQUEST_URI']));
+        header("Location: http://{$_SERVER['HTTP_HOST']}/sso/?page=login&redirect_uri=" . base64_encode($_SERVER['REQUEST_URI']));
         die();
     }
-    public static function getUser() {
-        $id = intval(self::$uid);
+    public static function getUserInfo($id = null) {
+        if ($id == null) $id = self::$uid;
         $ucRow = $ssoRow = null;
         $ucResult = self::$ucdb->query("SELECT `username`, `email` FROM `members` WHERE `uid` = {$id}");
-        $ssoResult = self::$ssodb->query("SELECT `auth_ded` FROM `sso` WHERE `auth_id` = {$id}");
+        $ssoResult = self::$ssodb->query("SELECT `auth_ded`,`name` FROM `sso` WHERE `auth_id` = {$id}");
         if ($ucResult) $ucRow = $ucResult->fetch_array();
         if ($ssoResult) $ssoRow = $ssoResult->fetch_array();
         if (!$ucRow || !$ssoRow) return null;
         $row = [
-            'uid' => self::$uid,
+            'uid' => $id,
             'username' => $ucRow['username'],
             'email' => $ucRow['email'],
             'auth_ded' => $ssoRow['auth_ded'],
+            'name' => $ssoRow['name'],
         ];
         if (!$ssoRow) return null;
         return $row;
+    }
+    public static function getUserByOpenid($openid) {
+        $info = self::$ssodb->query("SELECT `auth_id`, `auth_ded` FROM `sso` WHERE `auth_wechat` = '{$openid}' LIMIT 1");
+        $info = $info->fetch_array();
+        if (!$info) {
+            $return = [
+                'uid' => -1,
+                'username' => '',
+                'stu_num' => ''
+            ];
+        } else {
+            $user = self::$ucdb->query("SELECT `username` FROM `members` WHERE `uid` = {$info['auth_id']}");
+            $user = $user->fetch_array();
+            $return = [
+                'uid' => $info['auth_id'],
+                'username' => $user['username'],
+                'stu_num' => $info['auth_ded']
+            ];
+        }
+        return $return;
+    }
+    public static function getUserRepeats() {
+        $auth_ded = self::$ssodb->query('SELECT `auth_ded` FROM `sso` WHERE `auth_id` = ' . self::$uid);
+        $auth_ded = $auth_ded->fetch_array()['auth_ded'];
+        if (in_array($auth_ded, array('JUST4TEST', 'FRESHMAN', 'MALLUSER'))) {
+            return false;
+        }
+        $result = self::$ssodb->query("SELECT `auth_id` FROM `sso` WHERE `auth_ded` = '{$auth_ded}'");
+        $t = [];
+        while ($row = $result->fetch_array()) {
+            $t []= $row['auth_id'];
+        }
+        return $t;
+    }
+    public static function getUserByDed($stuid){
+        if (!$stuid) return NULL;
+        $auth = self::$ssodb->query("SELECT * FROM `sso` WHERE `auth_ded` = '$stuid'");
+        $auth = $auth->fetch_assoc();
+        return $auth;
     }
 }
 
